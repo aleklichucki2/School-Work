@@ -1,0 +1,256 @@
+---
+title: "final project"
+author: "alek lichucki"
+date: "5/31/2019"
+output: html_document
+---
+
+```{r}
+require(MASS)
+install.packages("forecast")
+install.packages("qpcR")
+install.packages("tsdl")
+library(forecast)
+library(qpcR)
+library(tsdl)
+
+#setting up the data set and doing prelim tests
+bwat = scan("bwater.dat", skip = 1)
+bwat.ts = ts(bwat)
+plot(bwat.ts, main = "original time series")
+acf(bwat.ts)
+pacf(bwat.ts)
+var(bwat.ts)
+
+#testing the box cox transformation
+bt = boxcox(bwat.ts~as.numeric(1:length(bwat.ts)))
+lam = bt$x[which(bt$y == max(bt$y))]
+
+#taking the log of the function to stabalize the variance, 0 is in the ci so log can be taken
+log.bwat = log(bwat.ts)
+plot(log.bwat, main = "ln plot")
+acf(log.bwat, lag.max = 20)
+pacf(log.bwat, lag.max = 20)
+var(log.bwat)
+
+#differencing at lag 1 to remove the trend
+bwat.1 = diff(log.bwat, 1)
+plot(bwat.1, main = "diff plot")
+acf(bwat.1, lag.max = 20)
+pacf(bwat.1, lag.max = 20)
+var(bwat.1)
+#either a ma(3) model or a ar(3) model or a mixed arma
+
+
+for (i in 0:3){for (j in 0:3){ print(i); print(j); print(AICc(arima(bwat.1, order = c(i,0,j), method = "ML")))}}
+
+m1 = arima(log.bwat, order = c(3, 1, 0), method = "ML") #ar(3) model
+m2 = arima(log.bwat, order = c(0, 1, 3), method = "ML") #ma(3) model
+m3 = arima(log.bwat, order = c(1, 1, 1), method = "ML") #arma(1, 1) model
+m4 = arima(log.bwat, order = c(0, 1, 0), method = "ML") #arma(0, 0) model
+
+#testing for m1
+polyroot(c(1, -.6870, -.4167, -.3303))
+tsdiag(m1)
+r1 = residuals(m1)
+y1 = arima.sim(model = list(ar = c(0, 0, -.2277)), 200)
+plot.ts(y1, main = "m1 sim")
+abline(lm(y1 ~ as.numeric(1:length(y1))))
+abline(h = mean(y1), col = "red")
+mean(y1)
+var(y1)
+plot(r1)
+plot(acf(r1, lag.max=20), main="acf for residuals")
+plot(pacf(r1, lag.max=20), main="pacf for residuals")
+Box.test(r1, lag = 8, type = c("Box-Pierce"), fitdf = 3)
+Box.test(r1, lag = 8, type = c("Ljung-Box"), fitdf = 3)
+Box.test(r1^2, lag = 8, type = c("Ljung-Box"), fitdf = 0)
+qqnorm(r1)
+qqline(r1, col = "red")
+
+#testing for m2
+polyroot(c(1, -.2677))
+tsdiag(m2)
+r2 = residuals(m2)
+y2 = arima.sim(model = list(ma = c(0, 0, -.2677)), 200)
+plot.ts(y2, main = "m1 sim")
+abline(lm(y2 ~ as.numeric(1:length(y2))))
+abline(h = mean(y2), col = "red")
+mean(y2)
+var(y2)
+plot(r2)
+plot(acf(r2, lag.max=20), main="acf for residuals")
+plot(pacf(r2, lag.max=20), main="pacf for residuals")
+Box.test(r2, lag = 8, type = c("Box-Pierce"), fitdf = 3)
+Box.test(r2, lag = 8, type = c("Ljung-Box"), fitdf = 3)
+Box.test(r2^2, lag = 8, type = c("Ljung-Box"), fitdf = 0)
+qqnorm(r2)
+qqline(r2, col = "red")
+
+#testing for m3
+polyroot(c(1, .7115))
+polyroot(c(1, -.8481)) #causal and invertible
+tsdiag(m3)
+r3 = residuals(m3)
+y3 = arima.sim(model = list(ar = c(.7115), ma = c(-.8481)), 200)
+plot.ts(y3, main = "m1 sim")
+abline(lm(y3 ~ as.numeric(1:length(y3))))
+abline(h = mean(y3), col = "red")
+mean(y3)
+var(y3)
+plot(r3)
+plot(acf(r3, lag.max=20), main="acf for residuals")
+plot(pacf(r3, lag.max=20), main="pacf for residuals")
+Box.test(r3, lag = 8, type = c("Box-Pierce"), fitdf = 2)
+Box.test(r3, lag = 8, type = c("Ljung-Box"), fitdf = 2)
+Box.test(r3^2, lag = 8, type = c("Ljung-Box"), fitdf = 0)
+qqnorm(r3)
+qqline(r3, col = "red")
+
+
+#testing for m4
+tsdiag(m4)
+r4 = residuals(m4)
+y4 = arima.sim(model = list(ar = c(0), ma = c(0)), 200)
+plot.ts(y4, main = "m4 sim")
+abline(lm(y4 ~ as.numeric(1:length(y4))))
+abline(h = mean(y4), col = "red")
+mean(y4)
+var(y4)
+plot(r4)
+plot(acf(r4, lag.max=20), main="acf for residuals")
+plot(pacf(r4, lag.max=20), main="pacf for residuals")
+Box.test(r4, lag = 8, type = c("Box-Pierce"), fitdf = 0)
+Box.test(r4, lag = 8, type = c("Ljung-Box"), fitdf = 0)
+Box.test(r4^2, lag = 8, type = c("Ljung-Box"), fitdf = 0)
+qqnorm(r4)
+qqline(r4, col = "red")
+
+#choosing model 3, lowest AICc, passes the tests, causal and invertible, 2 parameters
+m3
+AICc(m3)
+
+#forecasting
+pred.tr = predict(m3, n.ahead = 10)
+up.tr = pred.tr$pred +2*pred.tr$se
+low.tr = pred.tr$pred -2*pred.tr$se
+ts.plot(log.bwat, xlim=c(1,length(log.bwat)+10), ylim = c(0,max(up.tr))) #plot log.bwat and forecast
+lines(up.tr, col="blue", lty="dashed")
+lines(low.tr, col="blue", lty="dashed")
+points((length(log.bwat)+1):(length(log.bwat)+10), pred.tr$pred, col="red") 
+
+#returning to original data
+pred.og = exp(pred.tr$pred)
+up = exp(up.tr)
+low = exp(low.tr)
+ts.plot(bwat, xlim=c(1,length(bwat)+10), ylim = c(0,max(up)), main = "forecasted data") #plot bwat and forecast
+lines(up, col="blue", lty="dashed")
+lines(low, col="blue", lty="dashed")
+points((length(bwat)+1):(length(bwat)+10), pred.og, col="red")
+
+#plotting last 10 and the prediction
+ts.plot(bwat, xlim=c(length(bwat)-10,length(bwat)+10), ylim = c(0,max(up)), main = "end of forecasted data")
+points((length(bwat)+1):(length(bwat)+10),pred.og, col="red")
+lines((length(bwat)+1):(length(bwat)+10),up, lty=2, col="blue")
+lines((length(bwat)+1):(length(bwat)+10),low, lty=2, col="blue")
+
+#misc functions
+sarima=function(data,p,d,q,P=0,D=0,Q=0,S=-1){ 
+  n=length(data)
+  constant=1:n
+  xmean=matrix(1,n,1)
+  if (d>0)  
+    fitit=arima(data, order=c(p,d,q), seasonal=list(order=c(P,D,Q), period=S),xreg=constant,include.mean=F)
+  if (d<.00001)
+    fitit=arima(data, order=c(p,d,q), seasonal=list(order=c(P,D,Q), period=S),xreg=xmean,include.mean=F)
+  if (d+D>1)
+    fitit=arima(data, order=c(p,d,q), seasonal=list(order=c(P,D,Q), period=S))
+  if (S < 0) goof=20 else goof=3*S
+  tsdiag(fitit,gof.lag=goof)
+  k=length(fitit$coef)
+  BIC=log(fitit$sigma2)+(k*log(n)/n)
+  AICc=log(fitit$sigma2)+((n+k)/(n-k-2))
+  AIC=log(fitit$sigma2)+((n+2*k)/n)
+  list(fit=fitit, AIC=AIC, AICc=AICc, BIC=BIC)
+}
+
+plot.roots <- function(ar.roots=NULL, ma.roots=NULL, size=2, angles=FALSE, special=NULL, sqecial=NULL,my.pch=1,first.col="blue",second.col="red",main=NULL)
+{xylims <- c(-size,size)
+omegas <- seq(0,2*pi,pi/500)
+temp <- exp(complex(real=rep(0,length(omegas)),imag=omegas))
+plot(Re(temp),Im(temp),typ="l",xlab="x",ylab="y",xlim=xylims,ylim=xylims,main=main)
+abline(v=0,lty="dotted")
+abline(h=0,lty="dotted")
+if(!is.null(ar.roots))
+{
+  points(Re(1/ar.roots),Im(1/ar.roots),col=first.col,pch=my.pch)
+  points(Re(ar.roots),Im(ar.roots),col=second.col,pch=my.pch)
+}
+if(!is.null(ma.roots))
+{
+  points(Re(1/ma.roots),Im(1/ma.roots),pch="*",cex=1.5,col=first.col)
+  points(Re(ma.roots),Im(ma.roots),pch="*",cex=1.5,col=second.col)
+}
+if(angles)
+{
+  if(!is.null(ar.roots))
+  {
+    abline(a=0,b=Im(ar.roots[1])/Re(ar.roots[1]),lty="dotted")
+    abline(a=0,b=Im(ar.roots[2])/Re(ar.roots[2]),lty="dotted")
+  }
+  if(!is.null(ma.roots))
+  {
+    sapply(1:length(ma.roots), function(j) abline(a=0,b=Im(ma.roots[j])/Re(ma.roots[j]),lty="dotted"))
+  }
+}
+if(!is.null(special))
+{
+  lines(Re(special),Im(special),lwd=2)
+}
+if(!is.null(sqecial))
+{
+  lines(Re(sqecial),Im(sqecial),lwd=2)
+}
+}
+
+spec.arma <- function(ar=0,ma=0,var.noise=1,n.freq=500, ...)
+{ 
+  # check causality
+  ar.poly <- c(1, -ar)
+  z.ar <- polyroot(ar.poly)
+  if(any(abs(z.ar) <= 1)) cat("WARNING: Model Not Causal", "\n")  
+  # check invertibility
+  ma.poly <- c(1, ma)
+  z.ma <- polyroot(ma.poly)
+  if(any(abs(z.ma) <= 1)) cat("WARNING: Model Not Invertible", "\n")
+  if(any(abs(z.ma) <= 1) || any(abs(z.ar) <= 1) ) stop("Try Again")
+  #
+  ar.order <- length(ar)
+  ma.order <- length(ma) 
+  # check (near) parameter redundancy [i.e. are any roots (approximately) equal]  
+  for (i in 1:ar.order) {
+    if ( (ar == 0 & ar.order == 1) || (ma == 0 & ma.order ==1) ) break
+    if(any(abs(z.ar[i]-z.ma[1:ma.order]) < 1e-03)) {cat("WARNING: Parameter Redundancy", "\n"); break}
+  }
+  #
+  freq <- seq.int(0, 0.5, length.out = n.freq)
+  cs.ar <- outer(freq, 1:ar.order, function(x, y) cos(2 * 
+                                                        pi * x * y)) %*% ar
+  sn.ar <- outer(freq, 1:ar.order, function(x, y) sin(2 * 
+                                                        pi * x * y)) %*% ar
+  cs.ma <- outer(freq, 1:ma.order, function(x, y) cos(2 * 
+                                                        pi * x * y)) %*% -ma
+  sn.ma <- outer(freq, 1:ma.order, function(x, y) sin(2 * 
+                                                        pi * x * y)) %*% -ma                      
+  spec <- var.noise*((1 - cs.ma)^2 + sn.ma^2)/((1 - cs.ar)^2 + sn.ar^2)
+  spg.out <- list(freq=freq, spec=spec)
+  class(spg.out) <- "spec"
+  plot(spg.out, ci=0, main="", ...)
+  return(invisible(spg.out))
+}
+
+x_fit40 = arima(x, order = c(4,0,0), method = "ML") 
+AICc(x_fit40)
+
+
+```
