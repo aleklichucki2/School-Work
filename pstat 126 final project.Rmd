@@ -1,0 +1,168 @@
+---
+title: "pstat 126 final project"
+author: "alek lichucki, Ao Yu Hsiao"
+date: "6/1/2019"
+output:
+  word_document: default
+  html_document: default
+---
+## Abstract
+This project will be the regression analysis of two datasets RealEstateValuation.txt and Concrete.txt. Throughout this process different models will be compared, the models will be analyzed to see which coefficients are significant, the models will be analyzed to see if there are any transformations necessary, different models will be built through different methods, and finally tests will be run to determine which is the best model for the dataset. This project finds that each of the two data sets can be modeled through multiple linear regression, and of the models that were tested these are the best models.
+
+## Problem and Motivation
+The first dataset that is being analyzed is RealEstateValuation.txt, this dataset looks at real estate valuations from the Sindian District in Taipei City, Taiwan. The goal of the project is to model the price of the house based off the other variables. The motivation for this dataset is to give further contextualization to the real estate market in Taipei City, as well as offering people the ability to predict the price of their houses if they choose to sell also allowing for buyers to understand if the price of a certain house is good or not based off of the criteria.
+The second dataset that is being analyzed is Concrete.txt, this dataset looks at modeling the strength of high performance concrete. The goal of the analysis for this dataset is to find two models through two different selection methods, forward and backward elimination algorithm, then we will test to see if the models hold the assumptions, then finally choose the best model. The motivation for the analysis of this dataset is to compare two different algorithms and finding which finds the best model. The goal is also to model how the different factors affect the compressive strength of concrete.
+
+## Data
+The first dataset that is being analyzed is RealEstateValuation.txt, this dataset looks at real estate valuations from the Sindian District in Taipei City, Taiwan. This data was collected from June 2012 to May 2013. This dataset has 7 variables: TDate, the date of the transaction; Age, the house age; Metro, the distance to the nearest metro station; Stores, the number of convince stores in walking distance; Latitude; Longitude; Price, the price of the house per unit area.
+The second dataset that is being analyzed is Concrete.txt, this dataset looks at modeling the strength of high performance concrete. This dataset has 9 variables: X1, cement; X2, blast furnace slag; X3, fly ash; X4, water; X5, superplasticizer; X6, coarse aggregate; X7, fine aggregate; X8, age; Y, concrete compression strength
+
+## Questions of Interest
+The first question that was asked was to find the relationship between Price and the other variables in the RealEstateValuation.txt dataset. The first thing that we wanted to answer was to write an equation for the relationship, then we wanted to see which, if any, variables could be eliminated because they have little influence on the relationship. Then we wanted to see if there were any variables that were not included that had an influence on the price of houses. We then tested another relationship for the price, then we compared the two relationships that we found and choose the better one.
+The second question that we wanted to answer was to find out which method can best allow us to find the relationship between the other variables and the strength of the concrete. To do this we used two different methods to find possible relationships, tested to see if the relationships we found were good, and chose the best relationship.
+
+## Regression Methods
+Multiple linear regression- this is used to predict one response based off multiple other predictors
+Transformations- this is used to change the response or the predictor to fit a linear relationship
+ANOVA tables- this is used for the analysis of the regression
+Diagnostic tests- these are used to determine if the models pass the assumptions for linear regression
+Confidence intervals- these are used to give a range of what a value can be based off a regression
+
+## Regression Analysis
+
+For _italics_RealEstateValuation.txt_italics_
+```{r echo = FALSE}
+#install.packages("alr4")
+library(alr4)
+rl = read.table("RealEstateValuation.txt")
+lm_1 = lm(rl$Price ~ rl$TDate + rl$Age + rl$Stores + rl$Latitude)
+```
+
+```{r}
+#a
+pairs( ~ rl$Price + rl$TDate + rl$Age + rl$Stores + rl$Latitude)
+```
+
+From the graphs seen above we can see the relationships between the variables. Between price and date, we expect to see a weak linear relationship as well as between age and price, date and age might be irrelevant. Between price and latitude, we see a stronger linear relationship, and the same for price and stores. The pairs function was used to do this, we looked to see if there is a trend present in the data.There aren’t any association between the predictors. The pairs function was used to get this, in the pairs function there is not type of relationship between the predictors.
+
+$$E(Price)=\beta_0+\beta_{TDate}TDate+\beta_{Age}Age+\beta_{Stores}Stores+\beta_{Latitude}Latitude$$
+
+```{r}
+#b
+anova(lm_1)
+summary(lm_1)
+```
+
+Through these tests we found that Age, Latitude, and Stores were significant predictors. Age has a negative relationship, stores has a positive relationship, and latitude has a positive relationship.
+
+$$H_o: \beta_{Metro} = \beta_{Longitude} = 0~vs~ H_a: at~least~one~doesn't~=0 $$
+
+```{r}
+#c
+lm_1_red = lm(rl$Price ~ rl$Age + rl$Stores + rl$Latitude)
+lm_1_full = lm(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + rl$Metro + rl$Longitude)
+anova(lm_1_red, lm_1_full)
+```
+
+We reject $H_o$ because the p-value is 4.647e-15.
+
+$$H_o: \beta_{Metro} =  0~vs~ H_a: not~H_o $$
+$$H_o: \beta_{Longitude} =  0~vs~ H_a: not~H_o $$
+
+```{r}
+lm_1_red_no_metro = lm(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + rl$Longitude)
+lm_1_red_no_long = lm(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + rl$Metro)
+anova(lm_1_red_no_metro, lm_1_full)
+anova(lm_1_red_no_long, lm_1_full)
+summary(lm_1_full)
+```
+
+For $\beta_{Metro}$ we reject $H_o$, because the p-value is 8.166e-9. From this we conclude that metro is a significant predictor.
+For $\beta_{Longitude}$ we accept $H_o$, because the p-value is .8739. From this we conclude that longitude is not a significant predictor.
+
+$$E(Price)=\beta_0+\beta_{TDate}TDate+\beta_{Age}Age+\beta_{Metro}Metro+\beta_{Latitude}Latitude$$
+```{r echo = FALSE}
+#d
+lm_2 = lm(rl$Price ~ rl$TDate + rl$Age + rl$Metro + rl$Latitude)
+summary(lm_2)
+anova(lm_2)
+```
+```{r}
+AIC(lm_1_red_no_long) #better
+AIC(lm_2)
+BIC(lm_1_red_no_long) #better
+BIC(lm_2)
+```
+
+We perfer the model from 1. We perfer this because both the AIC and the BIC are lower than the ones for model 2.
+
+```{r}
+#e
+plot(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + rl$Metro) #metro needs s transformation
+invTranPlot(rl$Price ~ rl$Metro, lambda = c( 0, 0.5, 1), optimal = F) #log is the best transformation
+lm_1_trans = lm(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + log(rl$Metro))
+plot(rl$Price ~ rl$Age + rl$Stores + rl$Latitude + log(rl$Metro))
+bc = boxCox(lm_1_trans)
+lambda.opt <- bc$x[which.max(bc$y)] #.3030303030303
+lm_1_trans_full = lm(log(rl$Price) ~ rl$Age + rl$Stores + rl$Latitude + log(rl$Metro))
+plot(log(rl$Price) ~ rl$Age + rl$Stores + rl$Latitude + log(rl$Metro))
+summary(lm_1_trans_full)
+anova(lm_1_trans_full)
+AIC(lm_1_trans_full)
+BIC(lm_1_trans_full)
+```
+
+For the model from 1, we found that there were 2 transformations needed to improve the model, a log transformation for metro and a log transformation for the response price.
+
+From our analysis we found that the better model was the one we worked on from 1 with metro added as another predictor. To improve this model we performed transformations on metro and price.
+
+2.
+```{r echo}
+con = read.table("Concrete.txt")
+#a
+#forward selection bic
+library(alr4)
+m0 = lm(Y ~ 1, data = con)
+mf = lm(Y ~ ., data = con)
+n = length(con$Y)
+step(m0, scope = list(lower = m0, upper = mf), direction = 'forward', k = log(n), trace = 0)
+m1 = lm(Y ~ X1 + X5 + X8 + X2 + X4 + X3, data = con)
+plot(m1, which = c(1, 2))
+r1 = residuals(m1)
+mean(r1)
+outlierTest(m1)
+m1.cooks <- cooks.distance(m1)
+which(m1.cooks > 4/(n-2-1))
+```
+
+The diagnostic checks for the assumptions of linear regression hold. We found that there are 1 point that we wanted to remove, 382. This point is found to be an outlier through the outlier test. We also want to remove the values found after the which(m1.cooks > 4/(n-2-1)) line. This is because they qualify as high leverage points.
+
+```{r echo = FALSE}
+summary(con$X1) #mean response for the predictors
+summary(con$X5)
+summary(con$X8)
+summary(con$X2)
+summary(con$X4)
+summary(con$X3)
+```
+```{r}
+new = data.frame(X1 = 281, X5 = 6, X8 = 46, X2 = 74, X4 = 182, X3 = 54)
+predict(m1, new, interval = "confidence", level = .95)
+predict(m1, new, interval = "prediction", level = .95)
+```
+
+We found that the mean response for X1 = 281, X5 = 6, X8 = 46, X2 = 74, X4 = 182, X3 = 54. A 95% CI for the new response is [35.05, 36.33]. Meaning that we are 95% confident that the value will be between these two numbers. The 95% prediction interval is [15.25, 56.13]. Meaning that we are 95% confident that the new value will fall between these two numbers.
+
+```{r}
+#b
+step(mf, scope = list(lower = m0, upper = mf), direction = 'backward', k = log(n), trace = 0)
+m2 = lm(Y ~ X1 + X2 + X3 + X4 + X5 + X8, data = con)
+plot(m2, which = c(1, 2))
+```
+
+The assumptions of linear regression hold for this model and we want to remove the same points as the above model for the same reason. We get the same model from both of the algorithms.
+
+We found that both of the algorithms give us the same model, and that these models pass the diagnostic tests and do not violate the assumptions of linearity. 
+
+## Conclusion
+From the analysis of the two datasets we found that there can be different models that both work for a dataset. We also found that the goal for regressions should be to find the best possible model for the data, so to do that we have to find all the possible models that work for the dataset, which do not violate the assumptions of linear regression. We then must compare those models against each other to find which is the best one for the given dataset. Then after this we strive to improve the best model that we found by looking to see if there are any transformations that are necessary which could improve the model. We also found that different algorithms can create different models, but they can also create models which are the same. In the case that different models are produced they should be tested to see which one is better. The process which we went through for this project is applicable to other situations for regressions.
